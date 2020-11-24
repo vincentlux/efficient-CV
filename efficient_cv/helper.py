@@ -64,7 +64,7 @@ def get_dataloader(name):
         loader = get_training_dataloader(
             CIFAR100_TRAIN_MEAN,
             CIFAR100_TRAIN_STD,
-            num_workers=4,
+            num_workers=10,
             batch_size=args.batch_size,
             shuffle=True
         )
@@ -72,7 +72,7 @@ def get_dataloader(name):
         loader = get_test_dataloader(
             CIFAR100_TRAIN_MEAN,
             CIFAR100_TRAIN_STD,
-            num_workers=4,
+            num_workers=10,
             batch_size=args.batch_size,
             shuffle=False
         )

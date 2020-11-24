@@ -14,9 +14,9 @@ from torch.utils.data import Dataset, DataLoader
 from soco_device import DeviceCheck
 from datetime import datetime
 
-import torchvision.models as models
 import mlflow
 
+from models.resnet import resnet18
 from params import args
 import helper
 from tqdm import tqdm
@@ -106,7 +106,7 @@ def main():
 
 
     # Initialize the model for this run
-    model = models.resnet18(pretrained=args.use_pretrained, num_classes=100)
+    model = resnet18()
     model.to(args.device)
     print(model)
 
