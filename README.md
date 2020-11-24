@@ -18,3 +18,8 @@ python efficient_cv/train.py --do_train --do_eval --n_gpu 1 --optim sgd --num_ep
 2. quantization
 3. distillation
 4. pruning
+
+## NOTES
+* best baseline model:
+  * location: `snap/2020-11-24T14-13-16/best.pt`
+  * eval accuracy: 0.7617
