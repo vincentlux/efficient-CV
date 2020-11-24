@@ -1,4 +1,4 @@
-# dataloader credit to https://github.com/weiaicunzai/pytorch-cifar100/blob/master/utils.py
+# dataloader/LR credit to https://github.com/weiaicunzai/pytorch-cifar100/blob/master/utils.py
 import os
 import sys
 import re
@@ -17,6 +17,25 @@ from params import args
 
 CIFAR100_TRAIN_MEAN = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
 CIFAR100_TRAIN_STD = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
+
+
+class WarmUpLR(_LRScheduler):
+    """warmup_training learning rate scheduler
+    Args:
+        optimizer: optimzier(e.g. SGD)
+        total_iters: totoal_iters of warmup phase
+    """
+    def __init__(self, optimizer, total_iters, last_epoch=-1):
+
+        self.total_iters = total_iters
+        super().__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        """we will use the first m batches, and set the learning
+        rate to base_lr * m / total_iters
+        """
+        return [base_lr * self.last_epoch / (self.total_iters + 1e-8) for base_lr in self.base_lrs]
+
 
 def init_optimizer(model):
     if args.optim == 'sgd':

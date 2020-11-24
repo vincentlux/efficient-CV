@@ -20,6 +20,7 @@ class Params:
         self.parser.add_argument('--batch_size', type=int, default=256)
         self.parser.add_argument('--step_size', type=int, default=1, help='at which epoch does lr starts to decay by *gamma')
         self.parser.add_argument('--optim', type=str, default='sgd')
+        self.parser.add_argument('--warmup_steps', type=int, default=1)
         self.parser.add_argument('--lr', type=float, default=0.1)
         self.parser.add_argument('--weight_decay', type=float, default=5e-4)
         self.parser.add_argument('--nesterov', action='store_const', default=False, const=True)

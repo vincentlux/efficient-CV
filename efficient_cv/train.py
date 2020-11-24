@@ -27,11 +27,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def train(model, train_loader, epoch, criterion, optimizer):
+def train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler):
     correct = 0
     avg_loss = 0.
     model.train()
     for batch_idx, (data, target) in enumerate(train_loader):
+        if epoch <= args.warmup_steps:
+            warmup_scheduler.step()
         # import pdb; pdb.set_trace()
         data, target = data.to(args.device), target.to(args.device)
         optimizer.zero_grad()
@@ -121,6 +123,8 @@ def main():
 
         optimizer = helper.init_optimizer(model)
 
+        iter_per_epoch = len(train_loader)
+        warmup_scheduler = helper.WarmUpLR(optimizer, iter_per_epoch * args.warmup_steps)
         scheduler = helper.init_scheduler(optimizer)
 
         # valid once before training
@@ -130,7 +134,7 @@ def main():
 
         max_accu = 0.0
         for epoch in tqdm(range(1, args.num_epochs + 1)):
-            train_accu = train(model, train_loader, epoch, criterion, optimizer)
+            train_accu = train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler)
             valid_loss, valid_accu = valid(model, eval_loader, criterion)
 
             mlflow.log_metric("accuracy/train" , train_accu, epoch)
