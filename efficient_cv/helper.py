@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 import torchvision
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, MultiStepLR
 from params import args
 
 
@@ -24,7 +24,7 @@ def init_optimizer(model):
     elif args.optim == 'adam':
         optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     else:
-        return NotImplementedError
+        raise NotImplementedError
 
     return optimizer
 
@@ -33,9 +33,11 @@ def init_scheduler(optimizer):
         scheduler = StepLR(optimizer, step_size=args.step_size, gamma=args.gamma)
     elif args.scheduler == 'plateau':
         scheduler = ReduceLROnPlateau(optimizer, 'min')
+    elif args.scheduler == 'multistep':
+        scheduler = MultiStepLR(optimizer, milestones=[60, 120, 160], gamma=args.gamma)
     else:
         raise NotImplementedError
-    
+
     return scheduler
 
 def get_dataloader(name):

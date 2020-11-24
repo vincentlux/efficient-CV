@@ -136,7 +136,7 @@ def main():
             mlflow.log_metric("accuracy/train" , train_accu, epoch)
             mlflow.log_metric("accuracy/valid" , valid_accu, epoch)
             mlflow.log_metric("loss/valid" , valid_loss, epoch)
-            if args.scheduler == 'steplr':
+            if args.scheduler in ['steplr', 'multistep']:
                 scheduler.step()
             elif args.scheduler == 'plateau':
                 scheduler.step(valid_loss)
