@@ -104,7 +104,7 @@ def main():
 
 
     # Initialize the model for this run
-    model = models.resnet18(pretrained=args.use_pretrained)
+    model = models.resnet18(pretrained=args.use_pretrained, num_classes=100)
     model.to(args.device)
     print(model)
 
