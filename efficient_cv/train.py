@@ -82,7 +82,7 @@ def valid(model, eval_loader, criterion, task):
     logger.info('\nEval set: Average loss: {:.5f}, Accuracy: {}/{} ({:.4f}%)\n'.format(
         eval_loss, correct, len(eval_loader.dataset),
         100. * correct / len(eval_loader.dataset)))
-    latency = sum(total_secs) / len(total_secs)
+    latency = sum(total_secs) * 1000 / len(total_secs)
     return eval_loss, eval_accu, latency
 
 
@@ -239,7 +239,7 @@ def main():
                 suffix = '{}_{}'.format(task, 'gpu' if 'cuda' in device else 'cpu')
                 res_dict = {
                     f'accuracy/{suffix}': valid_accu,
-                    f'latency/{suffix}': latency,
+                    f'latency_ms/{suffix}': latency,
                     f'size_mb/{suffix}': size_in_mb,
                     f'params_million/{suffix}': num_params
                     }
