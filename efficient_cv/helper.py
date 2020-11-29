@@ -3,7 +3,7 @@ import os
 import sys
 import re
 import datetime
-
+import json
 import numpy
 
 import torch
@@ -13,10 +13,32 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau, MultiStepLR
 from params import args
+import mlflow
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 
 CIFAR100_TRAIN_MEAN = (0.5070751592371323, 0.48654887331495095, 0.4409178433670343)
 CIFAR100_TRAIN_STD = (0.2673342858792401, 0.2564384629170883, 0.27615047132568404)
+
+def get_size_of_model(model):
+    temp_file = 'temp.p'
+    torch.save(model.state_dict(), temp_file)
+    size_in_mb = round(float(os.stat(temp_file).st_size / 1e6), 2)
+    os.remove(temp_file)
+    num_param = round(float(sum(p.numel() for p in model.parameters() if p.requires_grad) / 1e6), 2)
+
+    return size_in_mb, num_param
+
+
+def save_logs(output_dir, res_map):
+    out_file = os.path.join(output_dir, 'logs.json')
+    with open(out_file, 'a') as f:
+        json.dump(res_map, f, ensure_ascii=False, indent=2)
+    logger.info(f'Results saved to {out_file}')
 
 
 class WarmUpLR(_LRScheduler):
@@ -64,7 +86,7 @@ def get_dataloader(name):
         loader = get_training_dataloader(
             CIFAR100_TRAIN_MEAN,
             CIFAR100_TRAIN_STD,
-            num_workers=10,
+            num_workers=0,
             batch_size=args.batch_size,
             shuffle=True
         )
@@ -72,7 +94,7 @@ def get_dataloader(name):
         loader = get_test_dataloader(
             CIFAR100_TRAIN_MEAN,
             CIFAR100_TRAIN_STD,
-            num_workers=10,
+            num_workers=0,
             batch_size=args.batch_size,
             shuffle=False
         )

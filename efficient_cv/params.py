@@ -11,7 +11,9 @@ class Params:
 
         # quantization setting
         self.parser.add_argument("--n_gpu", type=int, required=True, help='set to 0 if want to only use cpu')
-        self.parser.add_argument("--do_quantization", action='store_true', help='do post quantization')
+        self.parser.add_argument("--benchmarks", type=str, default='baseline', 
+                                    help='benchmark tasks split by comma. \
+                                    For example: "baseline,quantization,fp16,pruning,distillation"')
 
         # General
         self.parser.add_argument("--use_pretrained", action='store_true', help='use pretrained weights')
