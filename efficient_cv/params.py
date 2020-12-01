@@ -15,10 +15,14 @@ class Params:
                                     help='benchmark tasks split by comma. \
                                     For example: "baseline,quantization,fp16,pruning,distillation"')
 
+        # Distillation training
+        self.parser.add_argument('--student_model_name', type=str, default=None, help='set this \
+                                        for distillation training, for example "resnet10"')
+        self.parser.add_argument("--student_test_model_path", type=str, default=None)
+
         # General
-        self.parser.add_argument("--use_pretrained", action='store_true', help='use pretrained weights')
+        self.parser.add_argument('--model_name', type=str, default='resnet18')
         self.parser.add_argument('--num_epochs', type=int, default=60)
-        self.parser.add_argument('--name', type=str, default='default')
         self.parser.add_argument('--batch_size', type=int, default=256)
         self.parser.add_argument('--step_size', type=int, default=1, help='at which epoch does lr starts to decay by *gamma')
         self.parser.add_argument('--optim', type=str, default='sgd')
@@ -37,7 +41,6 @@ class Params:
         self.parser.add_argument('--num_feats', type=int, default=3, help='rgb')
         
         self.parser.add_argument("--do_train", action='store_true')
-        self.parser.add_argument("--do_train_distill", action='store_true')
         self.parser.add_argument("--do_eval", action='store_true')
         self.parser.add_argument('--output_dir', type=str, default=None)
 

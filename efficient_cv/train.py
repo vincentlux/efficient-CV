@@ -28,6 +28,13 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+MODEL_MAP = {
+    'resnet10': resnet10,
+    'resnet18': resnet18,
+    'resnet50': resnet50,
+    'resnet101': resnet101,
+}
+
 def train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler):
     correct = 0
     avg_loss = 0.
@@ -90,15 +97,13 @@ def init_xavier(m):
     if type(m) == nn.Conv2d or type(m) == nn.Linear:
         torch.nn.init.xavier_normal_(m.weight.data)
 
-def load_model(load_distill_model=False):
-    if not load_distill_model:
-        model = resnet18()
-    else:
-        model = resnet10()
+def load_model(model_name, state_dict_path=None):
+    model = MODEL_MAP[model_name]()
 
-    state = torch.load(args.test_model_path)
-    model.load_state_dict(state['state_dict'])
-    logger.info(f'Loaded the model of epoch {state["epoch"]} from {args.test_model_path}')
+    if state_dict_path:
+        state = torch.load(state_dict_path)
+        model.load_state_dict(state['state_dict'])
+        logger.info(f'Loaded the model of epoch {state["epoch"]} from {state_dict_path}')
     return model
 
 def main():
@@ -126,22 +131,18 @@ def main():
         logger.info(f'device: {args.device}')
 
         # Initialize the model for this run
-        if not args.do_train_distill:
-            model = resnet18()
-            model.to(args.device)
-            logger.debug(model)
+        if args.student_model_name:
+            logger.info('Start distillation training...')
+            logger.info('Loading trained teacher weights...')
+            model = load_model(args.model_name, args.test_model_path)
+            model.eval()
 
-        else:
-            # set teacher model weights by test_model_path
-            model = load_model(load_distill_model=False)
-            s_model = resnet10()
-            model.to(args.device)
+            s_model = load_model(args.student_model_name)
             s_model.to(args.device)
-            
-        if args.init == 'xavier':
-            logger.info('using xavier init')
-            model.apply(init_xavier)
-        logger.info(model)
+        else:
+            model = load_model(args.model_name)
+
+        model.to(args.device)
 
         train_loader = helper.get_dataloader('train')
         eval_loader = helper.get_dataloader('eval')
@@ -211,14 +212,14 @@ def main():
                         continue
                     
                     if task == 'baseline':
-                        model = load_model()
+                        model = load_model(args.model_name, args.test_model_path)
                         pass
 
                     elif task == 'quantization':
                         if device != 'cpu':
                             logger.info('quantization only works in cpu env, continue...')
                             continue
-                        model = load_model()
+                        model = load_model(args.model_name, args.test_model_path)
                         model = torch.quantization.quantize_dynamic(
                             model, {torch.nn.Linear}, dtype=torch.qint8)
                     
@@ -226,48 +227,37 @@ def main():
                         if device == 'cpu':
                             logger.info('fp16 only works in gpu env, continue...')
                             continue
-                        model = load_model()
+                        model = load_model(args.model_name, args.test_model_path)
                         model.half()
 
                     elif task == 'distillation':
                         #TODO
                         # override model with distilled model and reload weights
-                        distill_model = load_model(load_distill_model=True)
-                        # distilled_model = distill_resnet18()
-                        # state = torch.load(args.distill_test_model_path)
-                        # distilled_model.load(state_dict(state['state_dict']))
-                        # logger.info(f'Loaded the distilled model of epoch {state["epoch"]} from {args.distill_test_model_path} \
-                        #       with eval accuracy {state["eval_accuracy"]}')
+                        distill_model = load_model(args.student_model_name, args.student_test_model_path)
                         raise NotImplementedError
                     
                     elif task == 'pruning':
                         if device == 'cpu':
                             continue
-                        # for name, module in model.named_modules():
-                        #     if isinstance(module, torch.nn.Conv2d):
-                        #         prune.l1_unstructured(module, name='weight', amount=0.5)
-                        #     elif isinstance(module, torch.nn.Linear):
-                        #         prune.l1_unstructured(module, name='weight', amount=0.5)
-                        model = load_model()
+
+                        model = load_model(args.model_name, args.test_model_path)
                         params = [(module, 'weight') for name, module in model.named_modules() if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear)]
                         prune.global_unstructured(params, pruning_method=prune.L1Unstructured, amount=thres)
-                        #parameters_to_prune = [p[1] for p in params if 'weight' in p[0]]
-                        #for p in parameters_to_prune:
-                        #    prune_layer.prune(p)
-                        #print (params)
-                        #raise NotImplementedError
 
                     else:
-                        model = load_model()
                         logger.warn('{} not handled, pass'.format(task))
+                        continue
 
                     # send model to device
                     args.device = torch.device(device)
                     logger.info(f'Evaluating {task} on device: {args.device}')
                     model.to(args.device)
                     eval_loader = helper.get_dataloader('eval')
-                    
-                    valid_loss, valid_accu, latency = valid(model, eval_loader, criterion, task)
+                    try:
+                        valid_loss, valid_accu, latency = valid(model, eval_loader, criterion, task)
+                    except Exception as e:
+                        print(e)
+                        import pdb; pdb.set_trace()
 
                     size_in_mb, num_params = helper.get_size_of_model(model)
                     
