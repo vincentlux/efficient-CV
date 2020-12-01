@@ -3,3 +3,4 @@ data/
 snap/
 .vscode/
 mlruns/
+env/
