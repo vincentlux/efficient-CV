@@ -75,7 +75,7 @@ def init_scheduler(optimizer):
     elif args.scheduler == 'plateau':
         scheduler = ReduceLROnPlateau(optimizer, 'min')
     elif args.scheduler == 'multistep':
-        scheduler = MultiStepLR(optimizer, milestones=[60, 120, 160], gamma=args.gamma)
+        scheduler = MultiStepLR(optimizer, milestones=[30, 60, 80], gamma=args.gamma)
     else:
         raise NotImplementedError
 

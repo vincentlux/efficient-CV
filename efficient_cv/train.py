@@ -23,7 +23,7 @@ import helper
 from tqdm import tqdm
 
 import logging
-
+from torch.nn.utils import prune
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -90,6 +90,13 @@ def init_xavier(m):
     if type(m) == nn.Conv2d or type(m) == nn.Linear:
         torch.nn.init.xavier_normal_(m.weight.data)
 
+def load_model():
+    model = resnet18()
+    state = torch.load(args.test_model_path)
+    model.load_state_dict(state['state_dict'])
+    logger.info(f'Loaded the model of epoch {state["epoch"]} from {args.test_model_path}')
+    return model
+
 def main():
     if args.do_train or args.do_eval:
         now = datetime.now()
@@ -135,13 +142,13 @@ def main():
 
         # valid once before training
         logger.info('validation before training')
-        valid_loss, valid_accu = valid(model, eval_loader, criterion)
+        valid_loss, valid_accu, _ = valid(model, eval_loader, criterion, None)
         mlflow.log_metric("zero-shot-accuracy/valid" , valid_accu, 0)
 
         max_accu = 0.0
         for epoch in tqdm(range(1, args.num_epochs + 1)):
             train_accu = train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler)
-            valid_loss, valid_accu, _ = valid(model, eval_loader, criterion)
+            valid_loss, valid_accu, _ = valid(model, eval_loader, criterion, None)
 
             mlflow.log_metric("accuracy/train" , train_accu, epoch)
             mlflow.log_metric("accuracy/valid" , valid_accu, epoch)
@@ -183,71 +190,87 @@ def main():
         gpu_device_name, gpu_device_ids = dc.get_device(n_gpu=args.n_gpu)
         gpu_device_name = '{}:{}'.format(gpu_device_name, gpu_device_ids[0]) if len(gpu_device_ids) == 1 else gpu_device_name
         device_names = [gpu_device_name, 'cpu']
-
-        # Loop through both cpu and gpu
-        for device in device_names:
-            for task in tasks:
-                model = resnet18()
-                state = torch.load(args.test_model_path)
-                model.load_state_dict(state['state_dict'])
-                logger.info(f'Loaded the model of epoch {state["epoch"]} from {args.test_model_path}')
-
-                if task == 'baseline':
-                    pass
-
-                elif task == 'quantization':
-                    if device != 'cpu':
-                        logger.info('quantization only works in cpu env, continue...')
+        pruning_threshold = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+        for thres in pruning_threshold:
+            # Loop through both cpu and gpu
+            for device in device_names:
+                for task in tasks:
+                    if thres > 0 and task != 'pruning':
                         continue
-                    model = torch.quantization.quantize_dynamic(
-                        model, {torch.nn.Linear}, dtype=torch.qint8)
-                
-                elif task == 'fp16':
-                    if device == 'cpu':
-                        logger.info('fp16 only works in gpu env, continue...')
-                        continue
-                    model.half()
+                    
+                    if task == 'baseline':
+                        model = load_model()
+                        pass
 
-                elif task == 'distillation':
-                    #TODO
-                    # override model with distilled model and reload weights
-                    # distilled_model = distill_resnet18()
-                    # state = torch.load(args.distill_test_model_path)
-                    # distilled_model.load(state_dict(state['state_dict']))
-                    # logger.info(f'Loaded the distilled model of epoch {state["epoch"]} from {args.distill_test_model_path} \
-                    #       with eval accuracy {state["eval_accuracy"]}')
-                    raise NotImplementedError
-                
-                elif task == 'pruning':
-                    #TODO
-                    raise NotImplementedError
+                    elif task == 'quantization':
+                        if device != 'cpu':
+                            logger.info('quantization only works in cpu env, continue...')
+                            continue
+                        model = load_model()
+                        model = torch.quantization.quantize_dynamic(
+                            model, {torch.nn.Linear}, dtype=torch.qint8)
+                    
+                    elif task == 'fp16':
+                        if device == 'cpu':
+                            logger.info('fp16 only works in gpu env, continue...')
+                            continue
+                        model = load_model()
+                        model.half()
 
-                else:
-                    logger.warn('{} not handled, pass'.format(task))
+                    elif task == 'distillation':
+                        #TODO
+                        # override model with distilled model and reload weights
+                        # distilled_model = distill_resnet18()
+                        # state = torch.load(args.distill_test_model_path)
+                        # distilled_model.load(state_dict(state['state_dict']))
+                        # logger.info(f'Loaded the distilled model of epoch {state["epoch"]} from {args.distill_test_model_path} \
+                        #       with eval accuracy {state["eval_accuracy"]}')
+                        raise NotImplementedError
+                    
+                    elif task == 'pruning':
+                        if device == 'cpu':
+                            continue
+                        # for name, module in model.named_modules():
+                        #     if isinstance(module, torch.nn.Conv2d):
+                        #         prune.l1_unstructured(module, name='weight', amount=0.5)
+                        #     elif isinstance(module, torch.nn.Linear):
+                        #         prune.l1_unstructured(module, name='weight', amount=0.5)
+                        model = load_model()
+                        params = [(module, 'weight') for name, module in model.named_modules() if isinstance(module, torch.nn.Conv2d) or isinstance(module, torch.nn.Linear)]
+                        prune.global_unstructured(params, pruning_method=prune.L1Unstructured, amount=thres)
+                        #parameters_to_prune = [p[1] for p in params if 'weight' in p[0]]
+                        #for p in parameters_to_prune:
+                        #    prune_layer.prune(p)
+                        #print (params)
+                        #raise NotImplementedError
 
-                # send model to device
-                args.device = torch.device(device)
-                logger.info(f'Evaluating {task} on device: {args.device}')
-                model.to(args.device)
-                eval_loader = helper.get_dataloader('eval')
-                
-                valid_loss, valid_accu, latency = valid(model, eval_loader, criterion, task)
+                    else:
+                        model = load_model()
+                        logger.warn('{} not handled, pass'.format(task))
 
-                size_in_mb, num_params = helper.get_size_of_model(model)
-                
-                # Logging
-                suffix = '{}_{}'.format(task, 'gpu' if 'cuda' in device else 'cpu')
-                res_dict = {
-                    f'accuracy/{suffix}': valid_accu,
-                    f'latency_ms/{suffix}': latency,
-                    f'size_mb/{suffix}': size_in_mb,
-                    f'params_million/{suffix}': num_params
-                    }
+                    # send model to device
+                    args.device = torch.device(device)
+                    logger.info(f'Evaluating {task} on device: {args.device}')
+                    model.to(args.device)
+                    eval_loader = helper.get_dataloader('eval')
+                    
+                    valid_loss, valid_accu, latency = valid(model, eval_loader, criterion, task)
 
-                logger.info(res_dict)
-                mlflow.log_metrics(res_dict)
-                helper.save_logs(args.output_dir, res_dict)
-                
+                    size_in_mb, num_params = helper.get_size_of_model(model)
+                    
+                    # Logging
+                    suffix = '{}_{}_{}'.format(task, 'gpu' if 'cuda' in device else 'cpu', str(thres))
+                    res_dict = {
+                        f'accuracy/{suffix}': valid_accu,
+                        f'latency_ms/{suffix}': latency,
+                        f'size_mb/{suffix}': size_in_mb,
+                        f'params_million/{suffix}': num_params
+                        }
+
+                    logger.info(res_dict)
+                    mlflow.log_metrics(res_dict)
+                    helper.save_logs(args.output_dir, res_dict)
+                    
 
 
 if __name__ == '__main__':
