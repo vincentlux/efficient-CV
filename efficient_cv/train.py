@@ -17,7 +17,7 @@ from datetime import datetime
 
 import mlflow
 
-from models.resnet import resnet18
+from models.resnet import resnet18, resnet101
 from params import args
 import helper
 from tqdm import tqdm
@@ -90,8 +90,12 @@ def init_xavier(m):
     if type(m) == nn.Conv2d or type(m) == nn.Linear:
         torch.nn.init.xavier_normal_(m.weight.data)
 
-def load_model():
-    model = resnet18()
+def load_model(load_distill_model=False):
+    if not load_distill_model:
+        model = resnet101()
+    else:
+        model = resnet18()
+
     state = torch.load(args.test_model_path)
     model.load_state_dict(state['state_dict'])
     logger.info(f'Loaded the model of epoch {state["epoch"]} from {args.test_model_path}')
@@ -122,10 +126,18 @@ def main():
         logger.info(f'device: {args.device}')
 
         # Initialize the model for this run
-        model = resnet18()
-        model.to(args.device)
-        logger.debug(model)
+        if not args.do_train_distill:
+            model = resnet101()
+            model.to(args.device)
+            logger.debug(model)
 
+        else:
+            # set teacher model weights by test_model_path
+            model = load_model(load_distill_model=False)
+            s_model = resnet18()
+            model.to(args.device)
+            s_model.to(args.device)
+            
         if args.init == 'xavier':
             logger.info('using xavier init')
             model.apply(init_xavier)
@@ -220,6 +232,7 @@ def main():
                     elif task == 'distillation':
                         #TODO
                         # override model with distilled model and reload weights
+                        distill_model = load_model(load_distill_model=True)
                         # distilled_model = distill_resnet18()
                         # state = torch.load(args.distill_test_model_path)
                         # distilled_model.load(state_dict(state['state_dict']))

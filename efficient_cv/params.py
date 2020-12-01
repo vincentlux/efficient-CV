@@ -37,6 +37,7 @@ class Params:
         self.parser.add_argument('--num_feats', type=int, default=3, help='rgb')
         
         self.parser.add_argument("--do_train", action='store_true')
+        self.parser.add_argument("--do_train_distill", action='store_true')
         self.parser.add_argument("--do_eval", action='store_true')
         self.parser.add_argument('--output_dir', type=str, default=None)
 
