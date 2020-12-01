@@ -15,7 +15,7 @@ python efficient_cv/train.py --do_train --do_eval --n_gpu 1 --optim sgd --num_ep
 
 3. evaluate model
 ```
-python efficient_cv/train.py --do_eval --test_model_path snap/2020-11-24T14-13-16/best.pt --n_gpu 1 --benchmarks baseline,quantization,fp16
+python efficient_cv/train.py --do_eval --test_model_path snap/2020-12-01T17-04-17/best.pt --n_gpu 1 --benchmarks baseline,quantization,fp16,pruning --model_name resnet18
 ```
 
 ## TODO
