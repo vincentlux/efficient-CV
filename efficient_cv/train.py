@@ -17,7 +17,7 @@ from datetime import datetime
 
 import mlflow
 
-from models.resnet import resnet18, resnet101
+from models.resnet import resnet18, resnet50, resnet101
 from params import args
 import helper
 from tqdm import tqdm
@@ -92,7 +92,7 @@ def init_xavier(m):
 
 def load_model(load_distill_model=False):
     if not load_distill_model:
-        model = resnet101()
+        model = resnet50()
     else:
         model = resnet18()
 
@@ -127,7 +127,7 @@ def main():
 
         # Initialize the model for this run
         if not args.do_train_distill:
-            model = resnet101()
+            model = resnet50()
             model.to(args.device)
             logger.debug(model)
 
