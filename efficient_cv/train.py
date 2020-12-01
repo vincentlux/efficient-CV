@@ -17,7 +17,7 @@ from datetime import datetime
 
 import mlflow
 
-from models.resnet import resnet18, resnet50, resnet101
+from models.resnet import resnet10, resnet18, resnet50, resnet101
 from params import args
 import helper
 from tqdm import tqdm
@@ -92,9 +92,9 @@ def init_xavier(m):
 
 def load_model(load_distill_model=False):
     if not load_distill_model:
-        model = resnet50()
-    else:
         model = resnet18()
+    else:
+        model = resnet10()
 
     state = torch.load(args.test_model_path)
     model.load_state_dict(state['state_dict'])
@@ -127,14 +127,14 @@ def main():
 
         # Initialize the model for this run
         if not args.do_train_distill:
-            model = resnet50()
+            model = resnet18()
             model.to(args.device)
             logger.debug(model)
 
         else:
             # set teacher model weights by test_model_path
             model = load_model(load_distill_model=False)
-            s_model = resnet18()
+            s_model = resnet10()
             model.to(args.device)
             s_model.to(args.device)
             

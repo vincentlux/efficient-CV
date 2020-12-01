@@ -126,6 +126,11 @@ class ResNet(nn.Module):
 
         return output
 
+def resnet10():
+    """ return a ResNet 10 object
+    """
+    return ResNet(BasicBlock, [1, 1, 1, 1])
+
 def resnet18():
     """ return a ResNet 18 object
     """
