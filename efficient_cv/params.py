@@ -35,14 +35,8 @@ class Params:
         self.parser.add_argument('--nesterov', action='store_const', default=False, const=True)
         self.parser.add_argument('--momentum', type=float, default=0.9)
         self.parser.add_argument('--scheduler', type=str, default='steplr')
-        self.parser.add_argument('--dropout', type=float, default=0.5)
         self.parser.add_argument('--gamma', type=float, default=0.2)
-        self.parser.add_argument('--init', type=str, default=None)
-        self.parser.add_argument('--log_interval', type=int, default=3200)
-        self.parser.add_argument("--ensemble", action='store_const', default=False, const=True)
-        self.parser.add_argument('--ensemble_num', type=int, default=3)
-        self.parser.add_argument('--num_feats', type=int, default=3, help='rgb')
-        
+
         self.parser.add_argument("--do_train", action='store_true')
         self.parser.add_argument("--do_eval", action='store_true')
         self.parser.add_argument('--output_dir', type=str, default=None)
