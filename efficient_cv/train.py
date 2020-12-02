@@ -227,14 +227,6 @@ def main():
                 max_accu = valid_accu
 
     if args.do_eval:
-        #TODO add 
-        # loading model [done]
-        # time it [done]
-        # quantization [done]
-        # fp16 [done]
-        # distillation
-        # pruning
-
         # Assign tasks
         tasks = args.benchmarks.split(',')
         logger.info('Tasks: {}'.format(tasks))
