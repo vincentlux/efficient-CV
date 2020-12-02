@@ -46,13 +46,11 @@ def train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler, s_
     for batch_idx, (data, target) in enumerate(train_loader):
         if epoch <= args.warmup_steps:
             warmup_scheduler.step()
-        # import pdb; pdb.set_trace()
         data, target = data.to(args.device), target.to(args.device)
         optimizer.zero_grad()
 
         if s_model:
             # student model
-            # import pdb; pdb.set_trace()
             s_output = s_model(data)
             train_loss = criterion(s_output, target)
             # teacher model
@@ -276,11 +274,10 @@ def main():
                     elif task == 'distillation':
                         #TODO
                         # override model with distilled model and reload weights
-                        distill_model = load_model(args.student_model_name, args.student_test_model_path)
-                        raise NotImplementedError
+                        model = load_model(args.student_model_name, args.student_test_model_path)
                     
                     elif task == 'pruning':
-                        if device == 'cpu':
+                        if device == 'cpu' and thres != 0.5:
                             continue
 
                         model = load_model(args.model_name, args.test_model_path)
@@ -296,11 +293,7 @@ def main():
                     logger.info(f'Evaluating {task} on device: {args.device}')
                     model.to(args.device)
                     eval_loader = helper.get_dataloader('eval')
-                    try:
-                        valid_loss, valid_accu, latency = valid(model, eval_loader, criterion, task)
-                    except Exception as e:
-                        print(e)
-                        import pdb; pdb.set_trace()
+                    valid_loss, valid_accu, latency = valid(model, eval_loader, criterion, task)
 
                     size_in_mb, num_params = helper.get_size_of_model(model)
                     
