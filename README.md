@@ -32,3 +32,12 @@ python efficient_cv/train.py --do_eval --test_model_path snap/2020-12-01T17-04-1
 * resnet10 model (to compare with resnet10 model distilled from resnet 18):
   * location: `snap/2020-12-01T17-02-09/best.pt`
   * eval accuracy: 0.7344 
+
+
+
+
+---
+
+Distillation method refers to https://github.com/AberHu/Knowledge-Distillation-Zoo
+
+Cifar100 baseline method refers to https://github.com/weiaicunzai/pytorch-cifar100

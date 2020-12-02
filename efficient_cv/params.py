@@ -19,6 +19,9 @@ class Params:
         self.parser.add_argument('--student_model_name', type=str, default=None, help='set this \
                                         for distillation training, for example "resnet10"')
         self.parser.add_argument("--student_test_model_path", type=str, default=None)
+        self.parser.add_argument('--distill_method', type=str, default='logit', choices={'logit', 'soft'})
+        self.parser.add_argument('--distill_weight', type=float, default=0.1)
+        self.parser.add_argument('--temperature', type=int, default=4)
 
         # General
         self.parser.add_argument('--model_name', type=str, default='resnet18')

@@ -35,24 +35,48 @@ MODEL_MAP = {
     'resnet101': resnet101,
 }
 
-def train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler):
+def train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler, s_model, s_criterion):
     correct = 0
     avg_loss = 0.
-    model.train()
+    if s_model:
+        s_model.train()
+    else:
+        model.train()
+
     for batch_idx, (data, target) in enumerate(train_loader):
         if epoch <= args.warmup_steps:
             warmup_scheduler.step()
         # import pdb; pdb.set_trace()
         data, target = data.to(args.device), target.to(args.device)
         optimizer.zero_grad()
-        output = model(data)
-        train_loss = criterion(output, target)
-        train_loss.backward()
+
+        if s_model:
+            # student model
+            # import pdb; pdb.set_trace()
+            s_output = s_model(data)
+            train_loss = criterion(s_output, target)
+            # teacher model
+            output = model(data)
+            if args.distill_method == 'logit':
+                distill_loss = F.mse_loss(s_output, output.detach()) * args.distill_weight
+            elif args.distill_method == 'soft':
+                distill_loss = s_criterion(
+                    F.log_softmax(s_output / args.temperature, dim=1),
+                    F.softmax(output.detach() / args.temperature, dim=1),
+                ) * (args.temperature ** 2) * args.distill_weight
+                
+            loss = train_loss + distill_loss
+        else:
+            output = model(data)
+            loss = criterion(output, target)
+
+        loss.backward()
         optimizer.step()
-        pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+        # get the index of the max log-probability
+        pred = output.argmax(dim=1, keepdim=True) if not s_model else s_output.argmax(dim=1, keepdim=True)
         correct += pred.eq(target.view_as(pred)).sum().item()
 
-        avg_loss += train_loss.item()
+        avg_loss += loss.item()
         if batch_idx % 50 == 49:
             logger.info('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.5f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
@@ -135,19 +159,27 @@ def main():
             logger.info('Start distillation training...')
             logger.info('Loading trained teacher weights...')
             model = load_model(args.model_name, args.test_model_path)
+            
             model.eval()
+            for param in model.parameters():
+                param.requires_grad = False
 
             s_model = load_model(args.student_model_name)
             s_model.to(args.device)
+            if args.distill_method == 'logit':
+                s_criterion = nn.MSELoss()
+            elif args.distill_method == 'soft':
+                s_criterion = nn.KLDivLoss(reduction='batchmean')
         else:
             model = load_model(args.model_name)
+            s_model = None
 
         model.to(args.device)
 
         train_loader = helper.get_dataloader('train')
         eval_loader = helper.get_dataloader('eval')
 
-        optimizer = helper.init_optimizer(model)
+        optimizer = helper.init_optimizer(s_model if s_model else model)
 
         iter_per_epoch = len(train_loader)
         warmup_scheduler = helper.WarmUpLR(optimizer, iter_per_epoch * args.warmup_steps)
@@ -160,8 +192,19 @@ def main():
 
         max_accu = 0.0
         for epoch in tqdm(range(1, args.num_epochs + 1)):
-            train_accu = train(model, train_loader, epoch, criterion, optimizer, warmup_scheduler)
-            valid_loss, valid_accu, _ = valid(model, eval_loader, criterion, None)
+            train_accu = train(
+                    model, 
+                    train_loader, 
+                    epoch, criterion, 
+                    optimizer, 
+                    warmup_scheduler, 
+                    s_model=s_model,
+                    s_criterion=s_criterion)
+
+            if s_model:
+                valid_loss, valid_accu, _ = valid(s_model, eval_loader, criterion, None)
+            else:
+                valid_loss, valid_accu, _ = valid(model, eval_loader, criterion, None)
 
             mlflow.log_metric("accuracy/train" , train_accu, epoch)
             mlflow.log_metric("accuracy/valid" , valid_accu, epoch)
@@ -177,7 +220,7 @@ def main():
                 state = {
                         'epoch': epoch,
                         'eval_accuracy': valid_accu,
-                        'state_dict': model.state_dict(),
+                        'state_dict': s_model.state_dict() if s_model else model.state_dict(),
                         'optimizer': optimizer.state_dict()
                         }
                 current_best_model_name = os.path.join(args.output_dir, args.best_pt_name)
